@@ -1,4 +1,4 @@
-# MPC Project
+# Path Planning
 
 This project is a C++ implementation of a self driving car path planner for controlling a simulated car in highway traffic.  The simulation program provides the car's state, localization information, map information and sensor fusion data for other cars.  This c++ program implements behavior and trajectory modules of a self driving car to process this information to keep the car driving in traffic, passing other cars when necessary.  The program must stay below speed limit of 50 mph, keep acceleration below 10 m/s^s, and keep jerk below 10 m/s^s^s.  And obviously, the car cannot crash or run off of the road.  A picture of the simulation program is shown below.
 
