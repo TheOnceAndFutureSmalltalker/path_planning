@@ -271,7 +271,7 @@ double scoreLaneChange(int target_lane, int cur_lane, double car_s, double car_s
   { // if rear car going just a little faster than me
     // calculate how long it would take for him to catch me at my current speed
     double close_time = target_lane_rear_car[0] / ((target_lane_rear_car[1] - car_speed) * 0.447);
-    if(close_time < 3)
+    if(close_time < 4)
     {
       //cout << "rear car close time is " << close_time << endl;
       return -1;
@@ -410,7 +410,7 @@ int main() {
           const int POINTS_IN_PATH = 50;
           const double ANCHOR_POINT_DIST = 30.0;
           const double NUM_PTS_PER_INTERVAL = 3.0;  // min number of 0.02 spaced points consumed per request
-          const double MIN_LC_SCORE = 5.0;          // must have better than this score to do lane change
+          const double MIN_LC_SCORE = 6.0;          // must have better than this score to do lane change
 
 
           // j[1] is the data JSON object
