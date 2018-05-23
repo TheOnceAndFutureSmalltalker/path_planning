@@ -9,7 +9,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "spline.h"
-#include <time.h>
+
 
 using namespace std;
 
@@ -29,7 +29,7 @@ const double BEHIND_BUFFER = 20;  // car behind me in target lane cannot be clos
 const double MS_TO_MPH = 2.23;    // multiply by this to convert m/s to mph
 const double MAX_DELTA_VEL = 0.446;   // this is change in velocity over 0.02 s for max acceleration of 10 m/s^s
 const double MAX_VELOCITY = 49.25; // target max velocity just under speed limit
-const double NUM_PTS_PER_INTERVAL = 4.0;  // min number of 0.02 spaced points usually consumed per request
+const double NUM_PTS_PER_INTERVAL = 3.0;  // min number of 0.02 spaced points usually consumed per request
 
 
 // Checks if the SocketIO event has JSON data.
@@ -259,14 +259,29 @@ double scoreLaneChange(int target_lane, int cur_lane, double car_s, double car_s
 
   if(target_lane_front_car[0] < 20)
   { // target lane front car must be at least this far ahead of me
+    cout << "front car not far enough ahead of me" << endl;
     return -1;
   }
   if(target_lane_rear_car[0] < 10)
   { // target lane rear car must be at least this far behind me
+    cout << "rear car not far enough behind me" << endl;
     return -1;
   }
+  if(target_lane_rear_car[1] > car_speed + 1)
+  { // if rear car going just a little faster than me
+    // calculate how long it would take for him to catch me at my current speed
+    double close_time = target_lane_rear_car[0] / ((target_lane_rear_car[1] - car_speed) * 0.447);
+    if(close_time < 3)
+    {
+      cout << "rear car close time is " << close_time << endl;
+      return -1;
+    }
+  }
 
-  return 1;
+  // calculate a score based on speed and distance
+  double score = 0.2 * (target_lane_front_car[0] - 10) + 1.0 * (target_lane_front_car[1] - cur_lane_front_car[1] - 3);
+  cout << "score:  " << score << endl;
+  return score;
 }
 
 // updates ref_vel to keep my car within target_distance of car in front
@@ -361,6 +376,8 @@ int main() {
   // current state of car, KL, LCL, LCR, PLC
   string state = "KL";
 
+  cout << state << endl;
+
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&ref_vel,&state](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -396,8 +413,8 @@ int main() {
           const double MS_TO_MPH = 2.23;    // how long it takes in seconds to travel 1 meter going 1 MPH
           const int POINTS_IN_PATH = 50;
           const double ANCHOR_POINT_DIST = 30.0;
-          const double NUM_PTS_PER_INTERVAL = 4.0;  // min number of 0.02 spaced points consumed per request
-
+          const double NUM_PTS_PER_INTERVAL = 3.0;  // min number of 0.02 spaced points consumed per request
+          const double MIN_LC_SCORE = 5.0;
 
 
           // j[1] is the data JSON object
@@ -431,10 +448,6 @@ int main() {
             double car_in_front_distance = car_in_front[0];
             double car_in_front_speed = car_in_front[1];
 
-            time_t time0;
-            time(&time0);
-
-            //cout << time0 << "  " << car_speed << "  " << car_in_front_speed << "  " << car_in_front_distance << endl;
 
 
  /****************************************************************/
@@ -465,42 +478,38 @@ int main() {
             }
             if(state == PREPARE_LANE_CHANGE)
             {
-              // can only change lanes if there is enough distance between me and car in front
-              if(car_in_front_distance > SAFE_DISTANCE - 10)
+              if(lane == LEFT_LANE)
               {
-                if(lane == LEFT_LANE)
+                // if I am in the left lane, can I change into the middle lane
+                double scoreLCR = scoreLaneChange(CENTER_LANE, LEFT_LANE, car_s, car_speed, prev_size, sensor_fusion);
+                if(scoreLCR > MIN_LC_SCORE)
                 {
-                  // if I am in the left lane, can I change into the middle lane
-                  double scoreLCR = scoreLaneChange(CENTER_LANE, LEFT_LANE, car_s, car_speed, prev_size, sensor_fusion);
-                  if(scoreLCR > 0)
-                  {
-                    next_state = LANE_CHANGE_RIGHT;
-                  }
+                  next_state = LANE_CHANGE_RIGHT;
                 }
-                if(lane == RIGHT_LANE)
+              }
+              if(lane == RIGHT_LANE)
+              {
+                // if I am in the right lane, can I change into the center lane
+                double scoreLCL = scoreLaneChange(CENTER_LANE, RIGHT_LANE, car_s, car_speed, prev_size, sensor_fusion);
+                if(scoreLCL > MIN_LC_SCORE)
                 {
-                  // if I am in the right lane, can I change into the center lane
-                  double scoreLCL = scoreLaneChange(CENTER_LANE, RIGHT_LANE, car_s, car_speed, prev_size, sensor_fusion);
-                  if(scoreLCL > 0)
+                  next_state = LANE_CHANGE_LEFT;
+                }
+              }
+              if(lane == CENTER_LANE)
+              {
+                // if I am in the center lane, can I change into the left lane
+                double scoreLCL = scoreLaneChange(LEFT_LANE, CENTER_LANE, car_s, car_speed, prev_size, sensor_fusion);
+                double scoreLCR = scoreLaneChange(RIGHT_LANE, CENTER_LANE, car_s, car_speed, prev_size, sensor_fusion);
+                if(scoreLCL > MIN_LC_SCORE || scoreLCR > MIN_LC_SCORE)
+                {
+                  if(scoreLCL > scoreLCR)
                   {
                     next_state = LANE_CHANGE_LEFT;
                   }
-                }
-                if(lane == CENTER_LANE)
-                {
-                  // if I am in the center lane, can I change into the left lane
-                  double scoreLCL = scoreLaneChange(LEFT_LANE, CENTER_LANE, car_s, car_speed, prev_size, sensor_fusion);
-                  double scoreLCR = scoreLaneChange(RIGHT_LANE, CENTER_LANE, car_s, car_speed, prev_size, sensor_fusion);
-                  if(scoreLCL > 0 || scoreLCR > 0)
+                  else
                   {
-                    if(scoreLCL > scoreLCR)
-                    {
-                      next_state = LANE_CHANGE_LEFT;
-                    }
-                    else
-                    {
-                      next_state = LANE_CHANGE_RIGHT;
-                    }
+                    next_state = LANE_CHANGE_RIGHT;
                   }
                 }
               }
