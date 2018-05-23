@@ -42,7 +42,7 @@ I am not using prediction, everything is based on current state.  Again, this wo
 
 I am not using cost functions, per se, as described in lessons, but my code applies much of the same logic for decision making.  I am just merely implementing simple rules.  And again, it works for the simple scenario of this project.
 
-My lane change strategy is very naive.  Once I get stuck behind a slower car, I just wait until its clear in one of the lanes next to me and move into that lane.  I end up loosing out on some passing opportunities.  For example, I do not adjust my speed to come along side a gap in one of the other lanes.
+My lane change strategy is very naive.  Once I get stuck behind a slower car, I just wait until its clear in one of the lanes next to me and move into that lane.  I end up losing out on some passing opportunities.  For example, I do not adjust my speed to come along side a gap in one of the other lanes.
 
 I have many parameters that could use further tuning, but this is very time consuming.  I could spend weeks doing that!  The current parameter values seem to work OK.
 
